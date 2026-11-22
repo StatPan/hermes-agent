@@ -844,3 +844,33 @@ class TestSnowflakeValidation:
             action="fetch_messages", channel_id="11", before="1001", after="999"))
         assert "error" not in data
         assert mock_req.call_args.kwargs["params"] == {"limit": "50", "before": "1001", "after": "999"}
+
+
+# ---------------------------------------------------------------------------
+# Action: edit_message (ZIDH carry patch)
+# ---------------------------------------------------------------------------
+
+class TestEditMessage:
+    @patch("tools.discord_tool._discord_request")
+    def test_edit_message(self, mock_req, monkeypatch):
+        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
+        mock_req.return_value = {
+            "id": "500", "content": "Updated announcement", "edited_timestamp": "2026-08-02T00:01:00Z"}
+        result = json.loads(discord_admin_handler(
+            action="edit_message", channel_id="11", message_id="500", content="Updated announcement"))
+        assert result == {
+            "success": True, "message_id": "500", "content": "Updated announcement",
+            "edited_timestamp": "2026-08-02T00:01:00Z"}
+        mock_req.assert_called_once_with(
+            "PATCH", "/channels/11/messages/500", "test-token", body={"content": "Updated announcement"})
+
+    def test_edit_message_requires_content(self, monkeypatch):
+        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
+        result = json.loads(discord_admin_handler(action="edit_message", channel_id="11", message_id="500"))
+        assert "error" in result and "content" in result["error"]
+
+    def test_edit_message_rejects_bad_snowflake(self, monkeypatch):
+        monkeypatch.setenv("DISCORD_BOT_TOKEN", "test-token")
+        result = json.loads(discord_admin_handler(
+            action="edit_message", channel_id="11", message_id="../x", content="x"))
+        assert "error" in result
